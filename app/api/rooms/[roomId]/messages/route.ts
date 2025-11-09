@@ -3,11 +3,23 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { pusherServer, roomChannel } from "@/lib/pusher";
-import type { Message, User, Reaction, Membership } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
-type MessageFull = Message & { user: User; reactions: Reaction[] };
+/** Prisma 버전 차이로 인한 타입 export 불일치 회피용 로컬 타입 */
+type MessageFull = {
+  id: string;
+  roomId: string;
+  userId: string;
+  content: string;
+  createdAt: Date;
+  updatedAt: Date;
+  edited: boolean;
+  deleted: boolean;
+  user: { id: string; name: string | null; image: string | null; nickname: string | null };
+  reactions: { id: string; userId: string; type: string }[];
+};
+type Membership = { roomId: string; userId: string; lastReadAt: Date };
 
 export async function GET(req: Request, { params }: { params: { roomId: string }}) {
   const session = await getServerSession(authOptions);
@@ -17,17 +29,17 @@ export async function GET(req: Request, { params }: { params: { roomId: string }
   const cursor = searchParams.get("cursor");
   const limit = Math.min(30, Number(searchParams.get("limit") ?? "30"));
 
-  const messages: MessageFull[] = await prisma.message.findMany({
+  const messages = await prisma.message.findMany({
     where: { roomId: params.roomId },
     orderBy: { createdAt: "desc" },
     take: limit,
     ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
     include: { user: true, reactions: true }
-  });
+  }) as unknown as MessageFull[];
 
-  const mships: Membership[] = await prisma.membership.findMany({ where: { roomId: params.roomId } });
+  const mships = await prisma.membership.findMany({ where: { roomId: params.roomId } }) as unknown as Membership[];
 
-  const withRead = messages.map((m: MessageFull) => {
+  const withRead = messages.map((m) => {
     const readCount = mships.filter(ms => ms.lastReadAt >= m.createdAt).length;
     return { ...m, readCount, memberCount: mships.length };
   });
