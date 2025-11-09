@@ -5,6 +5,16 @@ import { authOptions } from "@/lib/auth-options";
 
 export const dynamic = "force-dynamic";
 
+type RoomEntity = {
+  id: string;
+  code: string;
+  name: string | null;
+  isDm: boolean;
+  createdBy: string;
+  createdAt: Date;
+};
+type MembershipWithRoom = { room: RoomEntity };
+
 function code6() {
   const s = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   return Array.from({ length: 6 }, () => s[Math.floor(Math.random() * s.length)]).join("");
@@ -13,11 +23,14 @@ function code6() {
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ ok: false }, { status: 401 });
-  const rooms = await prisma.membership.findMany({
+
+  const memberships = await prisma.membership.findMany({
     where: { userId: session.user.id },
     include: { room: true }
-  });
-  return NextResponse.json({ ok: true, rooms: rooms.map(r => r.room) });
+  }) as unknown as MembershipWithRoom[];
+
+  const rooms: RoomEntity[] = memberships.map((m: MembershipWithRoom) => m.room);
+  return NextResponse.json({ ok: true, rooms });
 }
 
 export async function POST(req: Request) {
@@ -25,10 +38,10 @@ export async function POST(req: Request) {
   if (!session?.user?.id) return NextResponse.json({ ok: false }, { status: 401 });
   const body = await req.json().catch(() => ({}));
   const { action } = body as { action: "create" | "join" };
+
   if (action === "create") {
     const { name, isDm } = body as { name?: string; isDm?: boolean };
     let code = code6();
-    // 중복 방지
     for (let i = 0; i < 5; i++) {
       const exists = await prisma.room.findUnique({ where: { code } });
       if (!exists) break;
@@ -40,13 +53,12 @@ export async function POST(req: Request) {
         code,
         isDm: !!isDm,
         createdBy: session.user.id,
-        memberships: {
-          create: { userId: session.user.id }
-        }
+        memberships: { create: { userId: session.user.id } }
       }
     });
     return NextResponse.json({ ok: true, room });
   }
+
   if (action === "join") {
     const { code } = body as { code: string };
     const room = await prisma.room.findUnique({ where: { code } });
@@ -58,5 +70,6 @@ export async function POST(req: Request) {
     });
     return NextResponse.json({ ok: true, room });
   }
+
   return NextResponse.json({ ok: false }, { status: 400 });
 }
