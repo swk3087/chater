@@ -3,12 +3,11 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { pusherServer, roomChannel } from "@/lib/pusher";
-import type { Prisma } from "@prisma/client";
+import type { Message, User, Reaction, Membership } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
-type MessageFull = Prisma.MessageGetPayload<{ include: { user: true; reactions: true } }>;
-type Membership = Prisma.Membership;
+type MessageFull = Message & { user: User; reactions: Reaction[] };
 
 export async function GET(req: Request, { params }: { params: { roomId: string }}) {
   const session = await getServerSession(authOptions);
