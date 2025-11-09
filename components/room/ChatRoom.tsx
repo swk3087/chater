@@ -37,7 +37,7 @@ export function ChatRoom({ room, onBack }: { room: Room; onBack: () => void }) {
   useEffect(() => {
     // @ts-ignore
     const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY || (globalThis as any).NEXT_PUBLIC_PUSHER_KEY || "${PUSHER_KEY}", {
-      cluster: "${PUSHER_CLUSTER}"
+      cluster: (process.env.NEXT_PUBLIC_PUSHER_CLUSTER as string) || "ap3"
     });
     pusherRef.current = pusher;
     const channel = pusher.subscribe(`room-${room.id}`);
