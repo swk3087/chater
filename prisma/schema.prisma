@@ -1,6 +1,4 @@
-generator client {
-  provider = "prisma-client-js"
-}
+generator client { provider = "prisma-client-js" }
 
 datasource db {
   provider = "postgresql"
@@ -14,11 +12,15 @@ model User {
   image        String?
   nickname     String?
   createdAt    DateTime     @default(now())
+
   accounts     Account[]
   sessions     Session[]
   memberships  Membership[]
   messages     Message[]
   reactions    Reaction[]
+
+  // ✅ Room.creator 역관계 추가
+  roomsCreated Room[]       @relation("RoomsCreated")
 }
 
 model Account {
@@ -63,7 +65,8 @@ model Room {
   name       String?
   isDm       Boolean       @default(false)
   createdBy  String
-  creator    User          @relation(fields: [createdBy], references: [id])
+  // ✅ 관계 이름 명시로 양쪽 연결
+  creator    User          @relation("RoomsCreated", fields: [createdBy], references: [id])
   createdAt  DateTime      @default(now())
 
   memberships Membership[]
@@ -102,7 +105,7 @@ model Reaction {
   id        String   @id @default(cuid())
   messageId String
   userId    String
-  type      String   // 'heart'만 사용
+  type      String
   createdAt DateTime @default(now())
 
   message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
